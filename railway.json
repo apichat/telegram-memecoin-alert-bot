@@ -1,0 +1,10 @@
+{
+  "services": [
+    {
+      "name": "telegram-alert-bot",
+      "run": {
+        "command": "node index.js"
+      }
+    }
+  ]
+}
