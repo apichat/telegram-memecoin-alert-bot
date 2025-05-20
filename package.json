@@ -1,5 +1,5 @@
 {
-  "name": "solana-alert-bot",
+  "name": "telegram-memecoin-alert",
   "version": "1.0.0",
   "description": "Alert bot for Solana wallet using Telegram",
   "main": "index.js",
