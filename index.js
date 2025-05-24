@@ -1,33 +1,40 @@
-const axios = require('axios');
-const { botToken, chatId, watchedAddress } = require('./config');
+const { Connection, PublicKey } = require('@solana/web3.js');
+const TelegramBot = require('node-telegram-bot-api');
 
-const endpoint = `https://api.solana.fm/v0/address/${watchedAddress}/txs?limit=1&cluster=mainnet-beta`;
+// ENV
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
+const WALLET_ADDRESS = process.env.WALLET_ADDRESS;
 
-let lastTx = null;
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
 
-async function checkTx() {
+let lastSignature = null;
+
+async function checkNewTx() {
   try {
-    const res = await axios.get(endpoint);
-    const tx = res.data?.result?.[0];
+    const pubKey = new PublicKey(WALLET_ADDRESS);
+    const confirmed = await connection.getSignaturesForAddress(pubKey, { limit: 1 });
 
-    if (!tx || tx.signature === lastTx) return;
+    if (!confirmed.length) return;
 
-    lastTx = tx.signature;
+    const signature = confirmed[0].signature;
 
-    const message = `🧠 Wallet ซื้อเหรียญใหม่แล้ว!\n\n🔗 TX: https://solscan.io/tx/${tx.signature}`;
-    await sendTelegramAlert(message);
+    if (signature !== lastSignature) {
+      lastSignature = signature;
+
+      const txUrl = `https://solscan.io/tx/${signature}`;
+      const message = `🚨 พบธุรกรรมใหม่จากกระเป๋าเป้าหมาย:\n\n🔗 ${txUrl}`;
+
+      await bot.sendMessage(CHAT_ID, message);
+      console.log('✅ ส่งแจ้งเตือนแล้ว:', signature);
+    } else {
+      console.log('ไม่มีธุรกรรมใหม่');
+    }
   } catch (err) {
-    console.error('Error fetching tx:', err.message);
+    console.error('เกิดข้อผิดพลาด:', err.message);
   }
 }
 
-async function sendTelegramAlert(msg) {
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  await axios.post(url, {
-    chat_id: chatId,
-    text: msg,
-    parse_mode: "Markdown"
-  });
-}
-
-setInterval(checkTx, 10000); // เช็คทุก 10 วิ
+// Check ทุก 20 วินาที
+setInterval(checkNewTx, 20_000);
